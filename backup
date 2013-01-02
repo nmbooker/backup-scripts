@@ -18,9 +18,13 @@ def get_options():
     parser = argparse.ArgumentParser(
                description="back up your current Linux OS",
              )
+    parser.add_argument('-l', '--log', dest='log_level', default='WARNING',
+        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
+        help='set logging level.  Default: WARNING')
     parser.add_argument('specfile')
     options = parser.parse_args()
-    # extra processing of options here
+    # Force log_level to upper case
+    options.log_level = options.log_level.upper()
     return options
 
 if __name__ == "__main__":
