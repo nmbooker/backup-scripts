@@ -23,6 +23,9 @@ class BackupConf(object):
         """Currently supported: lvm"""
         return self.conf.get('backup', 'source_type')
 
+    def backup_source_root(self):
+        return self.conf.get('backup', 'source_root')
+
     def source_is_lvm(self):
         return self.backup_source_type() == 'lvm'
 
@@ -43,6 +46,17 @@ class BackupConf(object):
 
     def backup_target(self):
         return self.conf.get('backup', 'target')
+
+    def backup_archive_prefix(self):
+        return self.conf.get('backup', 'archive_prefix')
+
+    def backup_subdirs(self):
+        """Returns empty list to mean 'backup all of them'.
+        """
+        try:
+            return shlex.split(self.conf.get('backup', 'subdirs'))
+        except ConfigParser.NoOptionError:
+            return []
 
     def bindmounts_equals(self):
         if not (self.conf.has_option('bindmounts', 'equals')):

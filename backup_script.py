@@ -4,6 +4,7 @@
 """
 
 import backup_conf
+import backup_operation
 import logging
 import os
 import os.path
@@ -146,7 +147,12 @@ class BackupScript(object):
         """Perform the backup copying operation itself.
         """
         self.log.info("Do the backup copying operation")
-        self.log.warn("_do_backup() not implemented yet")
+        backup = backup_operation.BackupCopy(
+                options=self.options,
+                config=self.conf,
+                backup_source_root=self._temp_mount_point()
+        )
+        backup.run()
 
     def _unmount(self, mountpoint):
         """Mount with a backoff, so it's less likely to fail completely.
