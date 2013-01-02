@@ -5,6 +5,7 @@
 
 import backup_conf
 import logging
+import os.path
 
 class BackupScript(object):
     """Top-down implementation of backup operation.
@@ -56,11 +57,26 @@ class BackupScript(object):
     def _make_lvm_snapshot(self):
         """Make the LVM snapshot.
         """
+        if not self.conf.should_snapshot_source():
+            self.log.info("LVM snapshots disabled")
+            return
         self.log.info("Make temporary LVM snapshot")
+        lvcreate_cmd = ['lvcreate']
+        lvcreate_cmd.extend(['--size', self.conf.lvm_snapshot_size()])
+        lvcreate_cmd.append('--snapshot')
+        lvcreate_cmd.extend(['--name', self.conf.lvm_snapshot_lv_name()])
+        path = os.path.join('/dev', self.conf.lvm_vg(), self.conf.lvm_lv())
+        lvcreate_cmd.append(path)
+        self._print_cmd(lvcreate_cmd)
+
+    def _print_cmd(self, cmd):
+        self.log.debug("Command: %r", cmd)
 
     def _mount_lvm_snapshot(self):
         """Mount the LVM snapshot
         """
+        if not self.conf.should_snapshot_source():
+            return
         self.log.info("Mount temporary LVM snapshot")
 
     def _mount_binds(self):
