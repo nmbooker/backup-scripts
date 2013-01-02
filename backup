@@ -26,6 +26,7 @@ def get_options():
             help="don't do anything for real, useful with -lINFO or -lDEBUG")
     parser.add_argument('specfile')
     options = parser.parse_args()
+    #options.noop = True  # Hardwire for now until script is considered safe
     return options
 
 if __name__ == "__main__":

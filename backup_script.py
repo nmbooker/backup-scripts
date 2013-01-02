@@ -5,7 +5,14 @@
 
 import backup_conf
 import logging
+import os
 import os.path
+import tempfile
+import subprocess
+import time
+
+class UnmountFailed(Exception):
+    pass
 
 class BackupScript(object):
     """Top-down implementation of backup operation.
@@ -16,6 +23,7 @@ class BackupScript(object):
         """
         self.options = options
         self._setup_logging()
+        self._mountpoint = None
 
     def _setup_logging(self):
         numeric_level = getattr(logging, self._log_level(), None)
@@ -72,13 +80,22 @@ class BackupScript(object):
         lvcreate_cmd.extend(['--name', self.conf.lvm_snapshot_lv_name()])
         path = self._source_lvm_device()
         lvcreate_cmd.append(path)
-        self._print_cmd(lvcreate_cmd)
+        self._print_run_cmd(lvcreate_cmd)
 
     def _source_lvm_device(self):
         return os.path.join('/dev', self.conf.lvm_vg(), self.conf.lvm_lv())
 
+    def _print_run_cmd(self, cmd):
+        self._print_cmd(cmd)
+        self._run_cmd(cmd)
+
     def _print_cmd(self, cmd):
         self.log.info("Command: %r", cmd)
+
+    def _run_cmd(self, cmd):
+        if not self._noop():
+            subprocess.check_call(cmd)
+
 
     def _mount_lvm_snapshot(self):
         """Mount the LVM snapshot
@@ -86,16 +103,86 @@ class BackupScript(object):
         if not self.conf.should_snapshot_source():
             return
         self.log.info("Mount temporary LVM snapshot")
+        mount_cmd = ['mount']
+        mount_cmd.append(self._get_snapshot_lvm_device())
+        mount_cmd.append(self._temp_mount_point())
+        self._print_run_cmd(mount_cmd)
+
+    def _get_snapshot_lvm_device(self):
+        return os.path.join('/dev', self.conf.lvm_vg(),
+                                    self.conf.lvm_snapshot_lv_name())
+
+    def _get_snapshot_lvm_volpath(self):
+        return self.conf.lvm_vg() + '/' + self.conf.lvm_snapshot_lv_name()
+
+    def _temp_mount_point(self):
+        if self._mountpoint is None:
+            if self._noop():
+                self._mountpoint = os.path.join(tempfile.gettempdir(), 'a_temporary_directory')
+            else:
+                self._mountpoint = tempfile.mkdtemp()
+        return self._mountpoint
 
     def _mount_binds(self):
         """Mount any bind mounts requested.
         """
         self.log.info("Mount any bind mounts")
+        for bind in self.conf.bindmounts_equals():
+            self._bind_mount_equal(bind)
+
+    def _bind_mount_equal(self, bind):
+        mountpoint = self._get_dir_in_mount_root(bind)
+        mount_cmd = ['mount', '--bind']
+        mount_cmd.append(bind)
+        mount_cmd.append(mountpoint)
+        self._print_run_cmd(mount_cmd)
+
+    def _get_dir_in_mount_root(self, target_dir):
+        target_dir = target_dir.lstrip('/')
+        self.log.debug('_get_dir_in_mount_point:target_dir = %r', target_dir)
+        return os.path.join(self._temp_mount_point(), target_dir)
 
     def _do_backup(self):
         """Perform the backup copying operation itself.
         """
         self.log.info("Do the backup copying operation")
+        self.log.warn("_do_backup() not implemented yet")
+
+    def _unmount(self, mountpoint):
+        """Mount with a backoff, so it's less likely to fail completely.
+
+        Tries up to 5 times, doubling the time it waits after each attempt.
+        The first try, it waits 1 second, then it will wait
+        2, 4, 8 and 16 seconds etc between attempts.
+
+        If umount still returns an error, an error is logged and
+        UnmountFailed is raised.
+        """
+        umount_cmd = ['umount', mountpoint]
+        self._print_cmd(umount_cmd)
+        if self._noop():
+            return
+
+        # This implements the backoff algorithm
+        backoff = 1
+        attempts = 0
+        max_attempts = 5
+        succeeded = False
+        while attempts < max_attempts and not succeeded:
+            attempts += 1
+            error = subprocess.call(umount_cmd)
+            if error:
+                self.log.warn("umount exited with status %d.  Trying again in %d seconds...", error, backoff)
+                time.sleep(backoff)
+                backoff *= 2
+            else:
+                succeeded = True
+                break
+
+        if not succeeded:
+            self.log.error("%r failed %d times.  Giving up.", umount_cmd, attempts)
+            raise UnmountFailed(mountpoint)
+
 
     def _post_backup_cleanup(self):
         """Remove any temporary stuff from this backup.
@@ -108,13 +195,34 @@ class BackupScript(object):
         """Unmount any bind mounts.
         """
         self.log.info("Unmount any bind mounts")
+        for bind in self.conf.bindmounts_equals():
+            self._bind_unmount_equal(bind)
+
+    def _bind_unmount_equal(self, bind):
+        mountpoint = self._get_dir_in_mount_root(bind)
+        self._unmount(mountpoint)
+
 
     def _unmount_lvm_snapshot(self):
         """Unmount any LVM snapshots.
         """
         self.log.info("Unmount the temporary LVM snapshot")
+        self._unmount(self._temp_mount_point())
+        self._remove_temp_mount_point()
+
+    def _remove_temp_mount_point(self):
+        if self._mountpoint is not None:
+            self.log.info('remove directory %r', self._mountpoint)
+            if not self._noop():
+                os.rmdir(self._mountpoint)
+                pass
+            self._mountpoint = None
 
     def _remove_lvm_snapshot(self):
         """Remove any LVM snapshots.
         """
         self.log.info("Remove the temporary LVM snapshot")
+        lvremove_cmd = ['lvremove']
+        lvremove_cmd.append('--force')  # remove active volume without confirmation
+        lvremove_cmd.append(self._get_snapshot_lvm_volpath())
+        self._print_run_cmd(lvremove_cmd)

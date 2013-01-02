@@ -6,6 +6,7 @@
 import sys
 import argparse
 import ConfigParser
+import shlex
 
 class BackupConf(object):
     """Backup configuration.
@@ -44,9 +45,9 @@ class BackupConf(object):
         return self.conf.get('backup', 'target')
 
     def bindmounts_equals(self):
-        if not (self.conf.has_options('bindmounts', 'equals')):
+        if not (self.conf.has_option('bindmounts', 'equals')):
             return []
-        return shlex.shlex(self.conf.get('bindmounts', 'equals'))
+        return shlex.split(self.conf.get('bindmounts', 'equals'))
 
 
 def main(options):
