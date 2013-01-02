@@ -1,17 +1,11 @@
 #! /usr/bin/env python
 
-"""DESCRIPTION
+"""Implements the OS backup script.
 """
 
 import sys
 import argparse
 import backup_conf
-
-def main(options):
-    """Main program."""
-    script = BackupScript(options)
-    script.run()
-    return
 
 class BackupScript(object):
     """Top-down implementation of backup operation.
@@ -47,12 +41,12 @@ class BackupScript(object):
     def _make_lvm_snapshot(self):
         """Make the LVM snapshot.
         """
-        print "Make LVM snapshot"
+        print "Make temporary LVM snapshot"
 
     def _mount_lvm_snapshot(self):
         """Mount the LVM snapshot
         """
-        print "Mount LVM snapshot"
+        print "Mount temporary LVM snapshot"
 
     def _mount_binds(self):
         """Mount any bind mounts requested.
@@ -79,25 +73,9 @@ class BackupScript(object):
     def _unmount_lvm_snapshot(self):
         """Unmount any LVM snapshots.
         """
-        print "Unmount any LVM snapshots used"
+        print "Unmount the temporary LVM snapshot"
 
     def _remove_lvm_snapshot(self):
         """Remove any LVM snapshots.
         """
-        print "Remove the LVM snapshots we used"
-
-
-
-def get_options():
-    """Get options for the script."""
-    parser = argparse.ArgumentParser(
-               description="DESCRIPTION",
-             )
-    # parser.add_argument() calls here
-    parser.add_argument('specfile')
-    options = parser.parse_args()
-    # extra processing of options here
-    return options
-
-if __name__ == "__main__":
-    main(get_options())
+        print "Remove the temporary LVM snapshot"
