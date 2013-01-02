@@ -11,6 +11,11 @@ import os.path
 import tempfile
 import subprocess
 import time
+import csv
+try:
+    import cStringIO as stringio
+except ImportError:
+    import StringIO as stringio
 
 class UnmountFailed(Exception):
     pass
@@ -60,6 +65,28 @@ class BackupScript(object):
         """Clean up any left-overs from last time.
         """
         self.log.info("Cleanup from last time")
+        if self._snapshot_exists():
+            self._post_backup_cleanup()
+
+    def _snapshot_exists(self):
+        lv_pair = [self.conf.lvm_snapshot_lv_name(), self.conf.lvm_vg()]
+        found = False
+        for record in self._list_current_lvs():
+            if record[:2] == lv_pair:
+                found = record
+                break
+        if found and found[4] != self.conf.lvm_lv():
+            raise RuntimeError('Logical volume %r exists, but is not a snapshot of %r.' % (self.conf.lvm_snapshot_lv_name(), self.conf.lvm_lv()))
+        return bool(found)
+
+    def _list_current_lvs(self):
+        lvs_cmd = ['lvs', '--separator', ',', '--noheadings']
+        output = subprocess.check_output(lvs_cmd)
+        lvs_fakefile = stringio.StringIO(output)
+        lvs_records = list(csv.reader(lvs_fakefile))
+        for record in lvs_records:
+            record[0] = record[0].lstrip()
+        return lvs_records
 
     def _prepare_for_backup(self):
         """Do any backup preparations.
@@ -177,7 +204,13 @@ class BackupScript(object):
         while attempts < max_attempts and not succeeded:
             attempts += 1
             error = subprocess.call(umount_cmd)
-            if error:
+            if error in (1,2):
+                # it wasn't mounted anyway (2) or mountpoint doesn't exist (1)
+                self.log.info("nothing mounted at %r", mountpoint)
+                # pretend we've succeeded - it doesn't matter.
+                succeeded = True
+                break
+            elif error:
                 self.log.warn("umount exited with status %d.  Trying again in %d seconds...", error, backoff)
                 time.sleep(backoff)
                 backoff *= 2
