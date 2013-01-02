@@ -19,9 +19,11 @@ class BackupScript(object):
         """Run the script."""
         self._read_config()
         self._cleanup_last_time()
-        self._prepare_for_backup()
-        self._do_backup()
-        self._post_backup_cleanup()
+        try:
+            self._prepare_for_backup()
+            self._do_backup()
+        finally:
+            self._post_backup_cleanup()
 
     def _read_config(self):
         """Read the configuration.
