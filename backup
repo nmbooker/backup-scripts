@@ -21,6 +21,9 @@ def get_options():
     parser.add_argument('-l', '--log', dest='log_level', default='WARNING',
         choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
         help='set logging level.  Default: WARNING')
+    parser.add_argument('--noop', '--dry-run', '-n', default=False,
+            action='store_true',
+            help="don't do anything for real, useful with -lINFO or -lDEBUG")
     parser.add_argument('specfile')
     options = parser.parse_args()
     return options

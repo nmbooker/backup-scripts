@@ -27,8 +27,13 @@ class BackupScript(object):
     def _log_level(self):
         return self.options.log_level
 
+    def _noop(self):
+        return self.options.noop
+
     def run(self):
         """Run the script."""
+        if self._noop():
+            self.log.warn('--noop set, won\'t do anything for real')
         self._read_config()
         self._cleanup_last_time()
         try:
@@ -65,12 +70,15 @@ class BackupScript(object):
         lvcreate_cmd.extend(['--size', self.conf.lvm_snapshot_size()])
         lvcreate_cmd.append('--snapshot')
         lvcreate_cmd.extend(['--name', self.conf.lvm_snapshot_lv_name()])
-        path = os.path.join('/dev', self.conf.lvm_vg(), self.conf.lvm_lv())
+        path = self._source_lvm_device()
         lvcreate_cmd.append(path)
         self._print_cmd(lvcreate_cmd)
 
+    def _source_lvm_device(self):
+        return os.path.join('/dev', self.conf.lvm_vg(), self.conf.lvm_lv())
+
     def _print_cmd(self, cmd):
-        self.log.debug("Command: %r", cmd)
+        self.log.info("Command: %r", cmd)
 
     def _mount_lvm_snapshot(self):
         """Mount the LVM snapshot
