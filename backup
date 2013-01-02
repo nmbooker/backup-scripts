@@ -23,8 +23,6 @@ def get_options():
         help='set logging level.  Default: WARNING')
     parser.add_argument('specfile')
     options = parser.parse_args()
-    # Force log_level to upper case
-    options.log_level = options.log_level.upper()
     return options
 
 if __name__ == "__main__":
