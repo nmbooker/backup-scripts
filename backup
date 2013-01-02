@@ -9,7 +9,7 @@ import backup_script
 
 def main(options):
     """Main program."""
-    script = backup_script.BackupScript()
+    script = backup_script.BackupScript(options)
     script.run()
     return
 
