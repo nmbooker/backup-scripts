@@ -3,7 +3,7 @@
 """The actual backup copying operation.
 """
 import datetime
-import subprocess
+import program_runners
 import os.path
 import logging
 import errno
@@ -239,6 +239,7 @@ class BaseBackupStrategy(object):
     """
     def __init__(self, backup):
         self.backup = backup
+        self._cmd = program_runners.LoggableCalls(self.backup.log, self.backup._noop())
 
     def run(self):
         self.backup.pre_backup()
@@ -308,17 +309,15 @@ class BaseBackupStrategy(object):
 
     def _print_run_cmd(self, cmd):
         """Print and perhaps run the given cmd.  cmd must be a list of args"""
-        self._print_cmd(cmd)
-        self._run_cmd(cmd)
+        self._cmd.check_call(cmd)
 
     def _print_cmd(self, cmd):
         """Log the command at info level."""
-        self.backup.log.info("Command: %r", cmd)
+        self._cmd.log_cmd(cmd)
 
     def _run_cmd(self, cmd):
         """Run the argument list cmd with check_call, unless --noop is set."""
-        if not self.backup._noop():
-            subprocess.check_call(cmd)
+        self._cmd.run_cmd(cmd)
 
     def _set_successful_backup(self, archive_name, parent=''):
         """Save the successful backup.
