@@ -192,6 +192,8 @@ class BackupConf(object):
 
         This is handy if a previous rsync could have failed for other reasons
         and you want previous backups to be synced even if this one failed.
+
+        NOT YET IMPLEMENTED
         """
         return self.conf.getboolean('rsync', 'even_if_backup_failed')
 
@@ -208,6 +210,8 @@ class BackupConf(object):
         If specified, and the touch_file could not be touched due to
         'No such file or directory' (ENOENT), then the script will wait
         a further 15 seconds before attempting to do the rsync.
+
+        NOT YET IMPLEMENTED
         """
         try:
             value = self.conf.get('rsync', 'touch_file')
