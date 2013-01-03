@@ -221,6 +221,22 @@ class BackupCopy(object):
 
 
 class BaseBackupStrategy(object):
+    """Base backup strategy.
+
+    Runs dar to actually perform the backup.
+
+    Subclasses must implement:
+     print_backup_type() - print the type (full or incremental) of backup
+                           and the name of the backup archive.
+                           It might also print the parent backup name.
+     get_extra_dar_args() - return any additional arguments to append to
+                            the usual dar command line.
+     get_archive_name() - return the full basename, with -FULL or -INC suffix.  Should usually use self.backup.archive_basename(suffix) for this.
+     set_successful_backup() - call self._set_successful_backup() with appropriate arguments.
+
+    You should instantiate a child class (concrete implementation) of this
+    and call its .run() method.
+    """
     def __init__(self, backup):
         self.backup = backup
 
@@ -251,11 +267,17 @@ class BaseBackupStrategy(object):
         # Don't compress the files matching the following patterns:
         for pattern in self._nocompress_patterns():
             dar_args.append('-Z', pattern)
+        # -g arguments restrict the subdirectories to be backed up.
+        # if there are no -g arguments, all subdirectories are backed up.
         for subdir in self._subdirs():
             dar_args.append('-g', subdir)
         return dar_args
 
     def _nocompress_patterns(self):
+        """Return the list of filename patterns to avoid compressing.
+
+        If empty, assume all files must be compressed.
+        """
         nocompress = [
                 '*.avi',
                 '*.bz2',
@@ -274,49 +296,77 @@ class BaseBackupStrategy(object):
         return nocompress
 
     def _subdirs(self):
+        """Return the list of subdirectories to backup.
+
+        An empty list must be taken to mean 'backup all subdirectories'.
+        """
         return self.backup.get_chosen_subdirs()
 
     def get_archive_base_path(self):
+        """Return the full path to the new archive, to be passed to dar."""
         return os.path.join(self.backup.backup_set_root(), self.get_archive_name())
 
     def _print_run_cmd(self, cmd):
+        """Print and perhaps run the given cmd.  cmd must be a list of args"""
         self._print_cmd(cmd)
         self._run_cmd(cmd)
 
     def _print_cmd(self, cmd):
+        """Log the command at info level."""
         self.backup.log.info("Command: %r", cmd)
 
     def _run_cmd(self, cmd):
+        """Run the argument list cmd with check_call, unless --noop is set."""
         if not self.backup._noop():
             subprocess.check_call(cmd)
 
     def _set_successful_backup(self, archive_name, parent=None):
+        """Save the successful backup.
+
+        archive_name: The name of the archive that's just been made.
+        parent: The name of the parent archive if applicable, else None.
+        """
         return self.backup.set_successful_backup(archive_name, parent)
 
 
 
 class FullBackupStrategy(BaseBackupStrategy):
+    """Bits of backup specific to a full backup.
+
+    See BaseBackupStrategy for invocation instructions.
+    """
     def get_archive_name(self):
+        """archive_basename + '-FULL'"""
         return self.backup.archive_basename('-FULL')
 
     def print_backup_type(self):
+        """Appropriate output information for a full backup."""
         print('Full backup: %s' % self.get_archive_name())
 
     def get_extra_dar_args(self):
+        """No extra args required for a full backup."""
         return []
 
     def set_successful_backup(self):
+        """Set successful backup with no parent"""
         self._set_successful_backup(self.get_archive_name())
 
 class IncrementalBackupStrategy(BaseBackupStrategy):
+    """Bits of backup specific to an incremental backup.
+
+    See BaseBackupStrategy for invocation instructions.
+    """
     def get_archive_name(self):
+        """archive_basename + '-INC'"""
         return self.backup.archive_basename('-INC')
 
     def print_backup_type(self):
+        """Outputs info for incremental backup, and name of parent."""
         print('Incremental backup: %s' % self.get_archive_name())
         print('Based on parent: %s' % self._get_parent_archive_name())
 
     def get_extra_dar_args(self):
+        """Arguments to specify the parent archive."""
         return ['-A', self._parent_archive_path()]
 
     def _get_parent_archive_name(self):
@@ -329,6 +379,7 @@ class IncrementalBackupStrategy(BaseBackupStrategy):
         return os.path.join(self.backup.backup_set_root(), self._get_parent_archive_name())
 
     def set_successful_backup(self):
+        """Set successful backup with parent."""
         archive_name = self.get_archive_name()
         parent = self._get_parent_archive_name()
         self._set_successful_backup(archive_name, parent)
