@@ -55,6 +55,7 @@ class BackupScript(object):
             self._do_backup()
         finally:
             self._post_backup_cleanup()
+            self._rsync_archives()
 
     def _read_config(self):
         """Read the configuration.
@@ -270,11 +271,15 @@ class BackupScript(object):
         """If configured to do so, synchronise archives to somewhere else.
         """
         if not self.conf.rsync_enabled():
-            self.log.info('rsync disabled')
+            self.log.info('rsync not requested in config file')
             return
-        self.log.info('rsync enabled')
+        self.log.info('rsyncing backups to another location...')
+        source_dir = self._get_rsync_source_dir()
+        self.log.info('rsync source: %r', source_dir)
         target_dir = self.conf.rsync_target_dir()
-        source_dir = self.conf.rsync_source_dir()
+        self.log.info('rsync target: %r', target_dir)
+        rsync_cmd = ['rsync', '-a', '-v', source_dir, target_dir]
+        self._print_run_cmd(rsync_cmd)
 
     def _get_rsync_source_dir(self):
         path = self.conf.backup_target()
