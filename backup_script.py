@@ -120,7 +120,7 @@ class BackupScript(object):
         self._cmd.check_call(cmd)
 
     def _print_cmd(self, cmd):
-        self._cmd.log_call(cmd)
+        self._cmd.log_cmd(cmd)
 
     def _mount_lvm_snapshot(self):
         """Mount the LVM snapshot
