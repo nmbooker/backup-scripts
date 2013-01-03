@@ -62,10 +62,25 @@ class BackupCopy(object):
         return os.path.join(self.backup_set_root(), 'backup_deps')
 
     def last_successful_backup_in_set(self):
+        """Return name of last successful backup in set.
+
+        None if there are no suitable backups in the curren set.
+
+        This is only looked up from disk on first call, and remembered
+        thereafter, so don't worry about calling this multiple times.
+        """
+        if hasattr(self, '_parent_memo'):
+            self.log.debug("getting last successful backup from _parent_memo")
+            # Memoize to avoid hitting the filesystem every time
+            # or getting inconsistent results.
+            return self._parent_memo
+
+        self.log.debug("getting last successful backup from file")
         try:
             lsf = open(self.last_successful_filename())
         except IOError, exc:
             if exc.errno == errno.ENOENT:
+                self.log.debug("Last Successful file %r not found", self.last_successful_filename())
                 return None
             else:
                 raise
@@ -74,13 +89,27 @@ class BackupCopy(object):
             result = lsf.readline().rstrip()
         finally:
             lsf.close()
+        if not result:
+            # coerce empty string to None
+            result = None
+        self.log.debug("Last Successful backup was %r", result)
+        self._parent_memo = result
         return result
 
     def set_successful_backup(self, backup_name, parent_backup=''):
-        with open(self.last_successful_filename, 'w') as lsf:
-            lsf.write(backup_name + '\n')
-        with open(self.deps_filename(), 'a') as lsf:
-            lsf.write("%s:%s\n" % (backup_name, parent_backup))
+        # Record latest successful backup as this one
+        lsf_name = self.last_successful_filename()
+        self.log.debug('Setting last successful backup name in %r', lsf_name)
+        if not self._noop():
+            with open(lsf_name, 'w') as lsf:
+                lsf.write(backup_name + '\n')
+
+        # Record backup dependency in dependencies file
+        depf_name = self.deps_filename()
+        self.log.debug('Logging backup dependency to %r...', depf_name)
+        if not self._noop():
+            with open(depf_name, 'a') as depf:
+                depf.write("%s:%s\n" % (backup_name, parent_backup))
 
     def archive_basename(self, suffix):
         return self.backup_prefix() + self.backup_date.strftime('%Y-%m-%dT%H%M') + suffix
@@ -120,6 +149,7 @@ class BaseBackupStrategy(object):
         dar_cmd = self.base_dar_cmdline()
         dar_cmd.extend(self.get_extra_dar_args())
         self._print_run_cmd(dar_cmd)
+        self.set_successful_backup()
 
     def base_dar_cmdline(self):
         basename = self.get_archive_base_path()
@@ -179,6 +209,9 @@ class BaseBackupStrategy(object):
         if not self.backup._noop():
             subprocess.check_call(cmd)
 
+    def _set_successful_backup(self, archive_name, parent=None):
+        return self.backup.set_successful_backup(archive_name, parent)
+
 
 
 class FullBackupStrategy(BaseBackupStrategy):
@@ -191,9 +224,12 @@ class FullBackupStrategy(BaseBackupStrategy):
     def get_extra_dar_args(self):
         return []
 
+    def set_successful_backup(self):
+        self._set_successful_backup(self.get_archive_name())
+
 class IncrementalBackupStrategy(BaseBackupStrategy):
     def get_archive_name(self):
-        return self.backup.archive_basenam('-INC')
+        return self.backup.archive_basename('-INC')
 
     def print_backup_type(self):
         print('Incremental backup: %s' % self.get_archive_name())
@@ -209,7 +245,12 @@ class IncrementalBackupStrategy(BaseBackupStrategy):
         return self._parent
 
     def _parent_archive_path(self):
-        return os.path.join(self.backup.backup_set_root(), self._get_parent_archive_name)
+        return os.path.join(self.backup.backup_set_root(), self._get_parent_archive_name())
+
+    def set_successful_backup(self):
+        archive_name = self.get_archive_name()
+        parent = self._get_parent_archive_name()
+        self._set_successful_backup(archive_name, parent)
 
 
 class ArgList(list):
