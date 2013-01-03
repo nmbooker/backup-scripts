@@ -320,11 +320,11 @@ class BaseBackupStrategy(object):
         if not self.backup._noop():
             subprocess.check_call(cmd)
 
-    def _set_successful_backup(self, archive_name, parent=None):
+    def _set_successful_backup(self, archive_name, parent=''):
         """Save the successful backup.
 
         archive_name: The name of the archive that's just been made.
-        parent: The name of the parent archive if applicable, else None.
+        parent: The name of the parent archive if applicable, else the empty string.
         """
         return self.backup.set_successful_backup(archive_name, parent)
 
