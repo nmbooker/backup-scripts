@@ -164,7 +164,7 @@ class BackupConf(object):
         enabled = true
         """
         try:
-            self.conf.getboolean('rsync', 'enabled')
+            return self.conf.getboolean('rsync', 'enabled')
         except ConfigParser.NoOptionError:
             return False
         except ConfigParser.NoSectionError:
