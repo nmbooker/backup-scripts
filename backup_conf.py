@@ -154,3 +154,66 @@ class BackupConf(object):
         if not (self.conf.has_option('bindmounts', 'equals')):
             return []
         return shlex.split(self.conf.get('bindmounts', 'equals'))
+
+    def rsync_enabled(self):
+        """Whether or not to do an rsync after the backup.
+
+        If this config option or [rsync] is not present, it is assumed False.
+
+        [rsync]
+        enabled = true
+        """
+        try:
+            self.conf.getboolean('rsync', 'enabled')
+        except ConfigParser.NoOptionError:
+            return False
+        except ConfigParser.NoSectionError:
+            return False
+
+    def rsync_target_dir(self):
+        """Specify where any rsync job should synchronise to.
+
+        The specified directory will be a mirror of the directory
+        specified by [backup]/target.
+
+        --delete is not used in rsync, so accidental deletion on the
+        source side won't get passed through to the remote side.
+
+        [rsync]
+        target_dir = /some/remote/directory
+        """
+        path = self.conf.get('rsync', 'target_dir')
+        if not path.endswith('/'):
+            path += '/'
+        return path
+
+    def rsync_even_if_backup_failed(self):
+        """Specify whether the rsync should still happen even if the backup itself failed.
+
+        This is handy if a previous rsync could have failed for other reasons
+        and you want previous backups to be synced even if this one failed.
+        """
+        return self.conf.getboolean('rsync', 'even_if_backup_failed')
+
+    def rsync_touch_file(self):
+        """Specify a file to touch before attempting a sync.
+
+        It's a way of making sure some remote filesystems, particularly
+        NFS ones automounted with autofs, are present and responding
+        before exiting.
+
+        If blank or missing, None is returned, which should be interpreted
+        as meaning that no file needs touching before commencing the sync.
+
+        If specified, and the touch_file could not be touched due to
+        'No such file or directory' (ENOENT), then the script will wait
+        a further 15 seconds before attempting to do the rsync.
+        """
+        try:
+            value = self.conf.get('rsync', 'touch_file')
+            if value:
+                return value
+            else:
+                return None
+        except NoOptionError:
+            return None

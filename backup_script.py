@@ -265,3 +265,19 @@ class BackupScript(object):
         lvremove_cmd.append('--force')  # remove active volume without confirmation
         lvremove_cmd.append(self._get_snapshot_lvm_volpath())
         self._print_run_cmd(lvremove_cmd)
+
+    def _rsync_archives(self):
+        """If configured to do so, synchronise archives to somewhere else.
+        """
+        if not self.conf.rsync_enabled():
+            self.log.info('rsync disabled')
+            return
+        self.log.info('rsync enabled')
+        target_dir = self.conf.rsync_target_dir()
+        source_dir = self.conf.rsync_source_dir()
+
+    def _get_rsync_source_dir(self):
+        path = self.conf.backup_target()
+        if not path.endswith('/'):
+            path += '/'
+        return path
