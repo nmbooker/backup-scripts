@@ -146,7 +146,7 @@ class BackupCopy(object):
                 self.log.info('Directory %r already exists', self.backup_set_root())
             else:
                 raise
-        return self.backup_root()
+        return
 
 
 
