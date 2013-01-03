@@ -17,8 +17,8 @@ class LoggableCalls(object):
     def check_call(self, cmd_args):
         """Log and optionally run
         """
-        log_cmd(cmd_args)
-        run_cmd(cmd_args)
+        self.log_cmd(cmd_args)
+        self.run_cmd(cmd_args)
 
     def log_cmd(self, cmd_args):
         """Log the command line at level 'info'.
