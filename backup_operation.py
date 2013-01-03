@@ -21,6 +21,11 @@ class BackupCopy(object):
     generic post_backup and pre_backup hooks may be added later.
     """
     def __init__(self, options, config, backup_source_root=None):
+        """
+        options: The script options namespace (usually returned from argparse)
+        config: The BackupConf object for the current instance.
+        backup_source_root: If provided, overrides the value in the config for get_backup_source_root()
+        """
         self.options = options
         self.conf = config
         self._backup_source_root_override = backup_source_root
@@ -29,6 +34,8 @@ class BackupCopy(object):
         self._make_backup_set()
 
     def _setup_logging(self):
+        """Sets up the logging interface at self.log
+        """
         numeric_level = getattr(logging, self._log_level(), None)
         if not isinstance(numeric_level, int):
             raise ValueError('Invalid log level: %s' % self._log_level())
@@ -36,9 +43,12 @@ class BackupCopy(object):
         self.log = logging.getLogger(__name__)
 
     def _log_level(self):
+        """Get the log level (DEBUG etc) from the script options."""
         return self.options.log_level
 
     def _noop(self):
+        """Return True if command line switch instructed the script to skip any real filesystem-changing operations.
+        """
         return self.options.noop
 
     def run(self):
