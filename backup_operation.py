@@ -42,40 +42,68 @@ class BackupCopy(object):
         return self.options.noop
 
     def run(self):
+        """Select and run a backup strategy (full or incremental)
+        """
         backup_strategy = self._get_backup_strategy()
         backup_strategy.run()
 
     def _get_backup_strategy(self):
+        """Return the appropriate backup strategy for this backup operation.
+        """
         if self.is_full_backup():
             return FullBackupStrategy(self)
         else:
             return IncrementalBackupStrategy(self)
 
     def backup_prefix(self):
+        """The configured string to append to the start of each backup's filename.
+
+        It's best if this is configured in the .ini file to end with some
+        sort of separator like underscore (_) or hyphen (-), to make the
+        resulting filenames easier to read.
+        """
         return self.conf.backup_archive_prefix()
 
     def is_full_backup(self):
+        """Return True if this will be a full backup, else False.
+        """
         return self.last_successful_backup_in_set() is None
 
     def backup_root(self):
+        """The base directory for all backup sets for the current configuration.
+
+        Typically, a directory for each month is created underneath this
+        directory, and backup files are put inside there.
+        """
         return self.conf.backup_target()
 
     def backup_set_root(self):
+        """The full path to the directory containing this month's backup set.
+        """
         return os.path.join(self.backup_root(), self.backup_set_name())
 
     def backup_set_name(self):
+        """The basename of the directory containing this month's backup set.
+        """
         return self.backup_date.strftime('%Y-%m')
 
     def last_successful_filename(self):
+        """The full path to the file that will contain the name of the last
+        successful backup in the current set.
+        """
         return os.path.join(self.backup_set_root(), 'latest_successful')
 
     def deps_filename(self):
+        """The full path to the file that documents the parent-child
+        relationship between backups in the current set.
+        """
         return os.path.join(self.backup_set_root(), 'backup_deps')
 
     def last_successful_backup_in_set(self):
         """Return name of last successful backup in set.
 
-        None if there are no suitable backups in the curren set.
+        None if there are no suitable backups in the current set.
+        Typically, this means this is the first backup of the month.
 
         This is only looked up from disk on first call, and remembered
         thereafter, so don't worry about calling this multiple times.
@@ -108,6 +136,10 @@ class BackupCopy(object):
         return result
 
     def set_successful_backup(self, backup_name, parent_backup=''):
+        """Record the backup of the given name as the latest successful
+        backup, and record its name and the name of its parent in the
+        dependencies file.
+        """
         # Record latest successful backup as this one
         lsf_name = self.last_successful_filename()
         self.log.debug('Setting last successful backup name in %r', lsf_name)
@@ -123,12 +155,30 @@ class BackupCopy(object):
                 depf.write("%s:%s\n" % (backup_name, parent_backup))
 
     def archive_basename(self, suffix):
+        """The full path and basename of the current backup.
+
+        This is the dar archive name.  dar itself automatically adds the
+        .N.dar suffixes to this, so you should not include this.
+
+        suffix: A string, usually beginning with a dash (-) specifying the type of backup.  Usully either '-FULL' or '-INC'.
+
+        If we produce an rsync backup type, suffix may well be blank.
+        """
         return self.backup_prefix() + self.backup_date.strftime('%Y-%m-%dT%H%M') + suffix
 
     def pre_backup(self):
+        """Might eventually run a configurable pre-backup script.
+        Currently just warns at INFO level that it's not implemented.
+        """
         self.log.info('pre_backup() not implemented in this script')
 
     def get_backup_source_root(self):
+        """Return the path to the directory to be backed up.
+
+        This is taken from the backup/source_root setting in the config
+        file, unless backup_source_root was provided in __init__,
+        in which case that value overrides that in the file.
+        """
         if self._backup_source_root_override is None:
             return self.conf.backup_source_root()
         else:
@@ -136,9 +186,19 @@ class BackupCopy(object):
         return self.backup.get_backup_source_root()
 
     def get_chosen_subdirs(self):
+        """Return the set of subdirectories of get_backup_source_root()
+        that should be backed up.
+
+        NOTE: an empty list or None value should be interpreted as meaning
+        'no restriction'.
+        This reflects the way the '-g' option to dar works.
+        """
         return self.conf.backup_subdirs()
 
     def _make_backup_set(self):
+        """Make the directory for the current backup set if it does not
+        exist.
+        """
         try:
             os.mkdir(self.backup_set_root())
         except OSError, exc:
