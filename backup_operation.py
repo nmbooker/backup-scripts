@@ -9,6 +9,16 @@ import logging
 import errno
 
 class BackupCopy(object):
+    """This encapsulates the copy operation for the backup.
+
+    It's an almost-direct port of my previous Ruby blah_backup.rb,
+    but with configuration from a file rather than having to copy-and-edit
+    each time.
+
+    This implementation, however, doesn't currently do the rsync.
+    That's best left to a wrapper script IMO, though the ability to run
+    generic post_backup and pre_backup hooks may be added later.
+    """
     def __init__(self, options, config, backup_source_root=None):
         self.options = options
         self.conf = config
