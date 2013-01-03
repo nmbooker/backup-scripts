@@ -5,6 +5,7 @@
 
 import backup_conf
 import backup_operation
+import program_runners
 import logging
 import os
 import os.path
@@ -30,6 +31,7 @@ class BackupScript(object):
         self.options = options
         self._setup_logging()
         self._mountpoint = None
+        self._cmd = program_runners.LoggableCalls(self.log, self._noop)
 
     def _setup_logging(self):
         numeric_level = getattr(logging, self._log_level(), None)
@@ -115,16 +117,10 @@ class BackupScript(object):
         return os.path.join('/dev', self.conf.lvm_vg(), self.conf.lvm_lv())
 
     def _print_run_cmd(self, cmd):
-        self._print_cmd(cmd)
-        self._run_cmd(cmd)
+        self._cmd.check_call(cmd)
 
     def _print_cmd(self, cmd):
-        self.log.info("Command: %r", cmd)
-
-    def _run_cmd(self, cmd):
-        if not self._noop():
-            subprocess.check_call(cmd)
-
+        self._cmd.log_call(cmd)
 
     def _mount_lvm_snapshot(self):
         """Mount the LVM snapshot
