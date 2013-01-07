@@ -31,7 +31,7 @@ class BackupScript(object):
         self.options = options
         self._setup_logging()
         self._mountpoint = None
-        self._cmd = program_runners.LoggableCalls(self.log, self._noop)
+        self._cmd = program_runners.LoggableCalls(self.log, self._noop())
 
     def _setup_logging(self):
         numeric_level = getattr(logging, self._log_level(), None)
